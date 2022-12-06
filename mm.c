@@ -180,40 +180,34 @@ int mm_init(void) {
 
 // first_fit 방식으로 구현한 find_fit
 char *first_fit(size_t asize) {
-  void *mem_heap_lo_result = mem_heap_lo();
-  void *mem_heap_hi_result = mem_heap_hi();
-  if (mem_heap_lo_result == NULL || mem_heap_hi_result == NULL) {
-    // Handle the case where mem_heap_lo() returned NULL
-    mem_init();
-    return NULL;
-  }
-  char *now = (char *)mem_heap_lo_result;
-  char *mem_brk = (char *)mem_heap_hi_result;
+  char *now = (char *)heap_listp;
   // mem_start_brk에서 블록들을 이동해 가면서 free한 size를 찾는다.
   while (1) {
-    if (!now) {
-      return NULL;
-    }
-    size_t isAlloc = GET_ALLOC(now);
-    size_t blockSize = GET_SIZE(now);
+    size_t isAlloc = GET_ALLOC(HDRP(now));
+    size_t blockSize = GET_SIZE(HDRP(now));
 
-    if (!isAlloc && blockSize >= asize) {
+    if (!isAlloc && blockSize >= asize)
       // 삽입 가능한 free_block
       return now;
-    } else {
-      if (now == mem_brk) {
-        return NULL;
-      } else {
-        now = NEXT_BLKP(now);
-      }
-    }
+    if (GET_SIZE(HDRP(now)) == 0) return NULL;
+    now = NEXT_BLKP(now);
   }
 }
 
 // bp에 asize를 할당하기
 void place(char *bp, size_t asize) {
-  PUT(HDRP(bp), PACK(asize, 1));
-  PUT(FTRP(bp), PACK(asize, 1));
+  size_t bp_size = GET_SIZE(HDRP(bp));
+  size_t dif = bp_size - asize;
+  if (dif >= 2 * DSIZE) {
+    //공간 자르기.
+    PUT(HDRP(bp), PACK(asize, 1));
+    PUT(FTRP(bp), PACK(asize, 1));
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(dif, 0));
+    PUT(FTRP(NEXT_BLKP(bp)), PACK(dif, 0));
+  } else {
+    PUT(HDRP(bp), PACK(bp_size, 1));
+    PUT(FTRP(bp), PACK(bp_size, 1));
+  }
 }
 
 /*
@@ -280,11 +274,24 @@ void *mm_realloc(void *ptr, size_t size) {
   void *oldptr = ptr;
   void *newptr;
   size_t copySize;
+  size_t asize;
 
-  newptr = mm_malloc(size);
+  if (size <= DSIZE) {
+    //만약 사이즈가 더블워드 크기보다 작으면
+    // 블록의 크기는 최소 16바이트 : 8바이트는 정렬 만족을 위해, 다른
+    // 8바이트는 헤더와 푸터 오버헤드를 위해서임
+    asize = 2 * DSIZE;
+  } else {
+    asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
+  }
+
+  newptr = mm_malloc(asize);
   if (newptr == NULL) return NULL;
-  copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-  if (size < copySize) copySize = size;
+
+  copySize = GET_SIZE(HDRP(ptr)) - DSIZE;
+  if (asize < copySize) {
+    copySize = asize;
+  }
   memcpy(newptr, oldptr, copySize);
   mm_free(oldptr);
   return newptr;
