@@ -90,6 +90,8 @@ alloc은 1비트만 채워져 있는 32비트 데이터.(맨 뒤 1자리 할당�
 // bp 이전 블록의 블록 포인터 리턴
 #define PREV_BLKP(bp) ((char *)(bp)-GET_SIZE(((char *)(bp)-DSIZE)))
 
+void *heap_listp;
+
 /*************
  * ************
  * 함수
@@ -176,11 +178,49 @@ int mm_init(void) {
   return 0;
 }
 
+// first_fit 방식으로 구현한 find_fit
+char *first_fit(size_t asize) {
+  void *mem_heap_lo_result = mem_heap_lo();
+  void *mem_heap_hi_result = mem_heap_hi();
+  if (mem_heap_lo_result == NULL || mem_heap_hi_result == NULL) {
+    // Handle the case where mem_heap_lo() returned NULL
+    mem_init();
+    return NULL;
+  }
+  char *now = (char *)mem_heap_lo_result;
+  char *mem_brk = (char *)mem_heap_hi_result;
+  // mem_start_brk에서 블록들을 이동해 가면서 free한 size를 찾는다.
+  while (1) {
+    if (!now) {
+      return NULL;
+    }
+    size_t isAlloc = GET_ALLOC(now);
+    size_t blockSize = GET_SIZE(now);
+
+    if (!isAlloc && blockSize >= asize) {
+      // 삽입 가능한 free_block
+      return now;
+    } else {
+      if (now == mem_brk) {
+        return NULL;
+      } else {
+        now = NEXT_BLKP(now);
+      }
+    }
+  }
+}
+
+// bp에 asize를 할당하기
+void place(char *bp, size_t asize) {
+  PUT(HDRP(bp), PACK(asize, 1));
+  PUT(FTRP(bp), PACK(asize, 1));
+}
+
 /*
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  *
- * size 바이트만큼의 메모리 블록을 요청하는 함수
+ * size 바이트만큼의 payload를 가진 메모리 블록을 요청하는 함수
  */
 void *mm_malloc(size_t size) {
   size_t asize;
@@ -190,18 +230,23 @@ void *mm_malloc(size_t size) {
   //만약 사이즈가 0이면 그냥 리턴
   if (size == 0) return NULL;
 
-  //만약 사이즈가 더블워드 크기보다 작으면
   if (size <= DSIZE) {
+    //만약 사이즈가 더블워드 크기보다 작으면
+    // 블록의 크기는 최소 16바이트 : 8바이트는 정렬 만족을 위해, 다른
+    // 8바이트는 헤더와 푸터 오버헤드를 위해서임
     asize = 2 * DSIZE;
   } else {
     asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
   }
 
-  if ((bp = find_fit(asize)) != NULL) {
+  // find_fit으로 최적 공간을 찾으면, 그 공간에 할당
+  if ((bp = first_fit(asize)) != NULL) {
     place(bp, asize);
     return bp;
   }
 
+  // find_fit으로 최적 공간을 찾지 못하면(자리가 없으면), 힙을 연장해서 그
+  // 자리에 할당
   extendsize = MAX(asize, CHUNKSIZE);
   if ((bp = extend_heap(extendsize / WSIZE)) == NULL) return NULL;
   place(bp, asize);
@@ -232,15 +277,15 @@ void mm_free(void *bp) {
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
 void *mm_realloc(void *ptr, size_t size) {
-  // void *oldptr = ptr;
-  // void *newptr;
-  // size_t copySize;
+  void *oldptr = ptr;
+  void *newptr;
+  size_t copySize;
 
-  // newptr = mm_malloc(size);
-  // if (newptr == NULL) return NULL;
-  // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-  // if (size < copySize) copySize = size;
-  // memcpy(newptr, oldptr, copySize);
-  // mm_free(oldptr);
-  // return newptr;
+  newptr = mm_malloc(size);
+  if (newptr == NULL) return NULL;
+  copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+  if (size < copySize) copySize = size;
+  memcpy(newptr, oldptr, copySize);
+  mm_free(oldptr);
+  return newptr;
 }

@@ -19,7 +19,6 @@
 static char *mem_start_brk; /* points to first byte of heap */
 static char *mem_brk;       /* points to last byte of heap */
 static char *mem_max_addr;  /* largest legal heap address */
-void *heap_listp;
 
 /*
  * mem_init - initialize the memory system model
@@ -55,7 +54,8 @@ void *mem_sbrk(int incr) {
   char *old_brk = mem_brk;
 
   if ((incr < 0) || ((mem_brk + incr) > mem_max_addr)) {
-    // 음수값을 인자로 받거나, incr을 적용한 주소값이 max를 초과했을 경우
+    // 음수값을 인자로 받거나, incr을 적용한 주소값이 max를 초과했을 경우 -1
+    // 리턴
     errno = ENOMEM;
     fprintf(stderr, "ERROR: mem_sbrk failed. Ran out of memory...\n");
     return (void *)-1;
