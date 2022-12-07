@@ -91,6 +91,7 @@ alloc은 1비트만 채워져 있는 32비트 데이터.(맨 뒤 1자리 할당�
 #define PREV_BLKP(bp) ((char *)(bp)-GET_SIZE(((char *)(bp)-DSIZE)))
 
 void *heap_listp;
+void *last_bp;
 
 /*************
  * ************
@@ -136,6 +137,7 @@ static void *coalesce(void *bp) {
     bp = PREV_BLKP(bp);
   }
 
+  last_bp = bp;
   return bp;
 }
 
@@ -172,7 +174,7 @@ int mm_init(void) {
   PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     /* Epilogue header */
   // heap_listp는 프롤로그 푸터의 시작점을 가리키게 됨
   heap_listp += (2 * WSIZE);
-
+  last_bp = heap_listp;
   /* Extend the empty heap with a free block of CHUNKSIZE bytes */
   if (extend_heap(CHUNKSIZE / WSIZE) == NULL) return -1;
   return 0;
@@ -191,6 +193,21 @@ char *first_fit(size_t asize) {
       return now;
     if (GET_SIZE(HDRP(now)) == 0) return NULL;
     now = NEXT_BLKP(now);
+  }
+}
+
+// next-fit 방식으로 구현한 find_fit
+char *next_fit(size_t asize) {
+  while (1) {
+    size_t isAlloc = GET_ALLOC(HDRP(last_bp));
+    size_t blockSize = GET_SIZE(HDRP(last_bp));
+
+    if (blockSize == 0) return NULL;
+    if (!isAlloc && blockSize >= asize) {
+      // 삽입 가능한 free_block
+      return last_bp;
+    }
+    last_bp = NEXT_BLKP(last_bp);
   }
 }
 
@@ -234,7 +251,7 @@ void *mm_malloc(size_t size) {
   }
 
   // find_fit으로 최적 공간을 찾으면, 그 공간에 할당
-  if ((bp = first_fit(asize)) != NULL) {
+  if ((bp = next_fit(asize)) != NULL) {
     place(bp, asize);
     return bp;
   }
