@@ -2,7 +2,6 @@
 
 void mem_init(void);               
 void mem_deinit(void);
-void *mem_sbrk(int incr);
 void *mem_mmap(size_t size);
 void mem_reset_brk(void); 
 void *mem_heap_lo(void);

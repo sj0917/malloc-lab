@@ -285,7 +285,7 @@ int main(int argc, char **argv)
 	unix_error("mm_stats calloc in main failed");
     
     /* Initialize the simulated memory system in memlib.c */
-    //mem_init(); 
+    mem_init(); 
 
     /* Evaluate student's mm malloc package using the K-best scheme */
     for (i=0; i < num_tracefiles; i++) {
@@ -355,6 +355,7 @@ int main(int argc, char **argv)
     else { /* There were errors */
 	perfindex = 0.0;
 	printf("Terminated with %d errors\n", errors);
+	dump_heap();
     }
 
     if (autograder) {

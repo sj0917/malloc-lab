@@ -10,35 +10,23 @@
 
 #include "config.h"
 
-static char *mem_start_brk; /* points to first byte of heap */
-static char *mem_brk;       /* points to last byte of heap */
-static char *mem_max_addr;  /* largest legal heap address */
+static char *mem_start_brk = NULL;
+static char *mem_brk = NULL;
+static char *mem_max_addr = NULL;
 
 void mem_init(void) {
-  if ((mem_start_brk = (char *)malloc(MAX_HEAP)) == NULL) {
+  if ((mem_start_brk = (char *)mem_mmap(MAX_HEAP)) == NULL) {
     fprintf(stderr, "mem_init_vm: malloc error\n");
     exit(1);
   }
 
-  mem_max_addr = mem_start_brk + MAX_HEAP; /* max legal heap address */
-  mem_brk = mem_start_brk;                 /* heap is empty initially */
+  mem_max_addr = mem_start_brk + MAX_HEAP; 
+  mem_brk = mem_start_brk;                 
 }
 
 void mem_deinit(void) { free(mem_start_brk); }
 
 void mem_reset_brk() { mem_brk = mem_start_brk; }
-
-void *mem_sbrk(int incr) {
-  char *old_brk = mem_brk;
-
-  if ((incr < 0) || ((mem_brk + incr) > mem_max_addr)) {
-    errno = ENOMEM;
-    fprintf(stderr, "ERROR: mem_sbrk failed. Ran out of memory...\n");
-    return (void *)-1;
-  }
-  mem_brk += incr;
-  return (void *)old_brk;
-}
 
 void *mem_mmap(size_t size)
 {

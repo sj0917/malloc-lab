@@ -84,9 +84,10 @@ static void my_log(const char *msg, size_t value)
 
 int mm_init(void) 
 {
-    const size_t pool_size = ((size_t)20) * (1 << 20); // 20 MB
-    g_pool.start = mem_mmap(pool_size);
-    g_pool.size = pool_size;
+    //const size_t pool_size = ((size_t)20) * (1 << 20); // 20 MB
+    //g_pool.start = mem_mmap(pool_size);
+    g_pool.start = mem_heap_lo();
+    g_pool.size = mem_heapsize();
     g_pool.first = (struct node *)g_pool.start;
     g_pool.first->next = NULL;
     g_pool.first->prev = NULL;
