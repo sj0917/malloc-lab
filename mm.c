@@ -36,6 +36,7 @@ team_t team = {
 };
 
 void *heap_listp;
+void *bp_next_fit;
 static void *extend_heap(size_t words);     /* 미리 extend 선언*/
 static void *coalesce(void *bp);            /* 미리 coalesce 선언*/
 static void *find_fit(size_t asize);
@@ -84,6 +85,7 @@ int mm_init(void)           /* 교재와 같음 */
     PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (3*WSIZE), PACK(0, 1));
     heap_listp += (2*WSIZE);    /* 질문 : heap_listp는 이후에 안쓰이는데 왜 더하는지*/
+    bp_next_fit = heap_listp;
 
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
@@ -149,18 +151,35 @@ void *mm_malloc(size_t size)            /* 교재와 같음 */
 
 static void *find_fit(size_t asize)
 {
-    void *bp = heap_listp;            /* int? void? */ 
+    void *bp = bp_next_fit;            /* int? void? */ 
     while (GET_SIZE(HDRP(bp)) != 0)
     {
         if (GET_SIZE(HDRP(bp)) >= asize && GET_ALLOC(HDRP(bp)) == 0)
         {
+            bp_next_fit = bp;
             return bp;
         }
         bp = NEXT_BLKP(bp);
     }
-
+  
+    bp_next_fit = bp;
     return NULL;
 }
+
+// static void *find_fit(size_t asize)
+// {
+//     void *bp = heap_listp;            /* int? void? */ 
+//     while (GET_SIZE(HDRP(bp)) != 0)
+//     {
+//         if (GET_SIZE(HDRP(bp)) >= asize && GET_ALLOC(HDRP(bp)) == 0)
+//         {
+//             return bp;
+//         }
+//         bp = NEXT_BLKP(bp);
+//     }
+
+//     return NULL;
+// }
 
 static void place(void *bp, size_t asize)
 {   
@@ -204,6 +223,7 @@ static void *coalesce(void *bp)     /* 기존의 header footer 안지워도 되�
 
     if (prev_alloc && next_alloc) 
     {
+        bp_next_fit = bp;
         return bp;
     }
     
@@ -231,6 +251,7 @@ static void *coalesce(void *bp)     /* 기존의 header footer 안지워도 되�
         bp = PREV_BLKP(bp);
     }
 
+    bp_next_fit = bp;
     return bp;
 }
 
