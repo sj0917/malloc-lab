@@ -355,7 +355,6 @@ int main(int argc, char **argv)
     else { /* There were errors */
 	perfindex = 0.0;
 	printf("Terminated with %d errors\n", errors);
-	dump_heap();
     }
 
     if (autograder) {
